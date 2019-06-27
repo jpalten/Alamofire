@@ -26,8 +26,6 @@ import Alamofire
 import Foundation
 import XCTest
 
-// MARK: -
-
 class RequestResponseTestCase: BaseTestCase {
     func testRequestResponse() {
         // Given
@@ -263,7 +261,7 @@ class RequestResponseTestCase: BaseTestCase {
         XCTAssertEqual(receivedResponse?.result.value?.form, ["property": "one"])
     }
 
-    // MARK: - Lifetime Events
+    // MARK: Lifetime Events
 
     func testThatAutomaticallyResumedRequestReceivesAppropriateLifetimeEvents() {
         // Given
@@ -288,7 +286,7 @@ class RequestResponseTestCase: BaseTestCase {
         waitForExpectations(timeout: timeout, handler: nil)
 
         // Then
-        XCTAssertEqual(request.state, .resumed)
+        XCTAssertEqual(request.state, .finished)
     }
 
     func testThatAutomaticallyAndManuallyResumedRequestReceivesAppropriateLifetimeEvents() {
@@ -317,7 +315,7 @@ class RequestResponseTestCase: BaseTestCase {
         waitForExpectations(timeout: timeout, handler: nil)
 
         // Then
-        XCTAssertEqual(request.state, .resumed)
+        XCTAssertEqual(request.state, .finished)
     }
 
     func testThatManuallyResumedRequestReceivesAppropriateLifetimeEvents() {
@@ -346,7 +344,7 @@ class RequestResponseTestCase: BaseTestCase {
         waitForExpectations(timeout: timeout, handler: nil)
 
         // Then
-        XCTAssertEqual(request.state, .resumed)
+        XCTAssertEqual(request.state, .finished)
     }
 
     func testThatRequestManuallyResumedManyTimesOnlyReceivesAppropriateLifetimeEvents() {
@@ -375,7 +373,7 @@ class RequestResponseTestCase: BaseTestCase {
         waitForExpectations(timeout: timeout, handler: nil)
 
         // Then
-        XCTAssertEqual(request.state, .resumed)
+        XCTAssertEqual(request.state, .finished)
     }
 
     func testThatRequestManuallySuspendedManyTimesAfterAutomaticResumeOnlyReceivesAppropriateLifetimeEvents() {
@@ -491,15 +489,15 @@ class RequestResponseTestCase: BaseTestCase {
         // Then
         XCTAssertEqual(request.state, .cancelled)
     }
-    
+
     func testThatRequestManuallyCancelledManyTimesOnManyQueuesOnlyReceivesAppropriateLifetimeEvents() {
         // Given
         let eventMonitor = ClosureEventMonitor()
         let session = Session(eventMonitors: [eventMonitor])
-        
+
         let expect = expectation(description: "request should receive appropriate lifetime events")
         expect.expectedFulfillmentCount = 5
-        
+
         eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
         eventMonitor.requestDidCancel = { _ in expect.fulfill() }
         eventMonitor.requestDidResume = { _ in expect.fulfill() }
@@ -507,22 +505,160 @@ class RequestResponseTestCase: BaseTestCase {
         // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
         eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
         eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
-        
+
         // When
         let request = session.request(URLRequest.makeHTTPBinRequest())
         // Cancellation stops task creation, so don't cancel the request until the task has been created.
         eventMonitor.requestDidCreateTask = { (_, _) in
             DispatchQueue.concurrentPerform(iterations: 100) { i in
                 request.cancel()
-                
+
                 if i == 99 { expect.fulfill() }
             }
         }
-        
+
         waitForExpectations(timeout: timeout, handler: nil)
-        
+
         // Then
         XCTAssertEqual(request.state, .cancelled)
+    }
+
+    func testThatRequestTriggersAllAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 13
+
+        var dataReceived = false
+
+        eventMonitor.taskDidReceiveChallenge = { (_, _, _) in expect.fulfill() }
+        eventMonitor.taskDidFinishCollectingMetrics = { (_, _, _) in expect.fulfill() }
+        eventMonitor.dataTaskDidReceiveData = { (_, _, _) in
+            guard !dataReceived else { return }
+            // Data may be received many times, fulfill only once.
+            dataReceived = true
+            expect.fulfill()
+        }
+        eventMonitor.dataTaskWillCacheResponse = { (_, _, _) in expect.fulfill() }
+        eventMonitor.requestDidCreateURLRequest = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCreateTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidGatherMetrics = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCompleteTaskWithError = { (_, _, _) in expect.fulfill() }
+        eventMonitor.requestDidFinish = { (_) in expect.fulfill() }
+        eventMonitor.requestDidResume = { (_) in expect.fulfill() }
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidParseResponse = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest()).response { _ in
+            expect.fulfill()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .finished)
+    }
+
+    func testThatCancelledRequestTriggersAllAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 12
+
+        eventMonitor.taskDidFinishCollectingMetrics = { (_, _, _) in expect.fulfill() }
+        eventMonitor.requestDidCreateURLRequest = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCreateTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidGatherMetrics = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCompleteTaskWithError = { (_, _, _) in expect.fulfill() }
+        eventMonitor.requestDidFinish = { (_) in expect.fulfill() }
+        eventMonitor.requestDidResume = { (_) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { _, _ in expect.fulfill() }
+        eventMonitor.requestDidParseResponse = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest()).response { _ in
+            expect.fulfill()
+        }
+
+        eventMonitor.requestDidResumeTask = { (_, _) in
+            request.cancel()
+            expect.fulfill()
+        }
+
+        request.resume()
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .cancelled)
+    }
+
+    func testThatAppendingResponseSerializerToCancelledRequestCallsCompletion() {
+        // Given
+        let session = Session()
+
+        var response1: DataResponse<Any>?
+        var response2: DataResponse<Any>?
+
+        let expect = expectation(description: "both response serializer completions should be called")
+        expect.expectedFulfillmentCount = 2
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+
+        request.responseJSON { resp in
+            response1 = resp
+            expect.fulfill()
+
+            request.responseJSON { resp in
+                response2 = resp
+                expect.fulfill()
+            }
+        }
+
+        request.cancel()
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(response1?.error?.asAFError?.isExplicitlyCancelledError, true)
+        XCTAssertEqual(response2?.error?.asAFError?.isExplicitlyCancelledError, true)
+    }
+
+    func testThatAppendingResponseSerializerToCompletedRequestCallsCompletion() {
+        // Given
+        let session = Session()
+
+        var response1: DataResponse<Any>?
+        var response2: DataResponse<Any>?
+
+        let expect = expectation(description: "both response serializer completions should be called")
+        expect.expectedFulfillmentCount = 2
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+
+        request.responseJSON { resp in
+            response1 = resp
+            expect.fulfill()
+
+            request.responseJSON { resp in
+                response2 = resp
+                expect.fulfill()
+            }
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertNotNil(response1?.value)
+        XCTAssertEqual(response2?.error?.asAFError?.isResponseSerializerAddedAfterRequestFinished, true)
     }
 }
 
