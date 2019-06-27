@@ -1,8 +1,7 @@
-// swift-tools-version:4.0
 //
-//  Package@swift-4.swift
+//  AFResult+Alamofire.swift
 //
-//  Copyright (c) 2014-2018 Alamofire Software Foundation (http://alamofire.org/)
+//  Copyright (c) 2019 Alamofire Software Foundation (http://alamofire.org/)
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -23,19 +22,26 @@
 //  THE SOFTWARE.
 //
 
-import PackageDescription
+import Alamofire
+import Foundation
 
-let package = Package(
-    name: "Alamofire",
-    products: [
-        .library(
-            name: "Alamofire",
-            targets: ["Alamofire"])
-    ],
-    targets: [
-        .target(
-            name: "Alamofire",
-            path: "Source")
-    ],
-    swiftLanguageVersions: [3, 4]
-)
+extension AFResult {
+    var isSuccess: Bool {
+        guard case .success = self else { return false }
+        return true
+    }
+
+    var isFailure: Bool {
+        return !isSuccess
+    }
+
+    var value: Success? {
+        guard case .success(let value) = self else { return nil }
+        return value
+    }
+
+    var error: Failure? {
+        guard case .failure(let error) = self else { return nil }
+        return error
+    }
+}

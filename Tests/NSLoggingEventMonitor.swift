@@ -140,12 +140,24 @@ public final class NSLoggingEventMonitor: EventMonitor {
         NSLog("Request: \(request) didResume")
     }
 
+    public func request(_ request: Request, didResumeTask task: URLSessionTask) {
+        NSLog("Request: \(request) didResumeTask: \(task)")
+    }
+
     public func requestDidSuspend(_ request: Request) {
         NSLog("Request: \(request) didSuspend")
     }
 
+    public func request(_ request: Request, didSuspendTask task: URLSessionTask) {
+        NSLog("Request: \(request) didSuspendTask: \(task)")
+    }
+
     public func requestDidCancel(_ request: Request) {
         NSLog("Request: \(request) didCancel")
+    }
+
+    public func request(_ request: Request, didCancelTask task: URLSessionTask) {
+        NSLog("Request: \(request) didCancelTask: \(task)")
     }
 
     public func request(_ request: DataRequest, didParseResponse response: DataResponse<Data?>) {
@@ -184,7 +196,7 @@ public final class NSLoggingEventMonitor: EventMonitor {
         NSLog("Request: \(request), didProvideInputStream: \(stream)")
     }
 
-    public func request(_ request: DownloadRequest, didFinishDownloadingUsing task: URLSessionTask, with result: Result<URL>) {
+    public func request(_ request: DownloadRequest, didFinishDownloadingUsing task: URLSessionTask, with result: AFResult<URL>) {
         NSLog("Request: \(request), didFinishDownloadingUsing: \(task), withResult: \(result)")
     }
 

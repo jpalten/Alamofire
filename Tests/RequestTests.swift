@@ -262,6 +262,268 @@ class RequestResponseTestCase: BaseTestCase {
         // Then
         XCTAssertEqual(receivedResponse?.result.value?.form, ["property": "one"])
     }
+
+    // MARK: - Lifetime Events
+
+    func testThatAutomaticallyResumedRequestReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 3
+
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidFinish = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .resumed)
+    }
+
+    func testThatAutomaticallyAndManuallyResumedRequestReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 3
+
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidFinish = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        for _ in 0..<100 {
+            request.resume()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .resumed)
+    }
+
+    func testThatManuallyResumedRequestReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 3
+
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidFinish = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        for _ in 0..<100 {
+            request.resume()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .resumed)
+    }
+
+    func testThatRequestManuallyResumedManyTimesOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 3
+
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidFinish = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        for _ in 0..<100 {
+            request.resume()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .resumed)
+    }
+
+    func testThatRequestManuallySuspendedManyTimesAfterAutomaticResumeOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 2
+
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        for _ in 0..<100 {
+            request.suspend()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .suspended)
+    }
+
+    func testThatRequestManuallySuspendedManyTimesOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 2
+
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        for _ in 0..<100 {
+            request.suspend()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .suspended)
+    }
+
+    func testThatRequestManuallyCancelledManyTimesAfterAutomaticResumeOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 2
+
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        // Cancellation stops task creation, so don't cancel the request until the task has been created.
+        eventMonitor.requestDidCreateTask = { (_, _) in
+            for _ in 0..<100 {
+                request.cancel()
+            }
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .cancelled)
+    }
+
+    func testThatRequestManuallyCancelledManyTimesOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 2
+
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        // Cancellation stops task creation, so don't cancel the request until the task has been created.
+        eventMonitor.requestDidCreateTask = { (_, _) in
+            for _ in 0..<100 {
+                request.cancel()
+            }
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .cancelled)
+    }
+    
+    func testThatRequestManuallyCancelledManyTimesOnManyQueuesOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+        
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 5
+        
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        // Cancellation stops task creation, so don't cancel the request until the task has been created.
+        eventMonitor.requestDidCreateTask = { (_, _) in
+            DispatchQueue.concurrentPerform(iterations: 100) { i in
+                request.cancel()
+                
+                if i == 99 { expect.fulfill() }
+            }
+        }
+        
+        waitForExpectations(timeout: timeout, handler: nil)
+        
+        // Then
+        XCTAssertEqual(request.state, .cancelled)
+    }
 }
 
 // MARK: -
@@ -306,8 +568,8 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
         var headers = HTTPHeaders.default
         headers["Accept-Language"] = "en-US"
 
-        let configuration = URLSessionConfiguration.alamofireDefault
-        configuration.httpHeaders = headers
+        let configuration = URLSessionConfiguration.af.default
+        configuration.headers = headers
 
         let manager = Session(configuration: configuration)
 
@@ -318,8 +580,8 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
         var headers = HTTPHeaders.default
         headers["Content-Type"] = "application/json"
 
-        let configuration = URLSessionConfiguration.alamofireDefault
-        configuration.httpHeaders = headers
+        let configuration = URLSessionConfiguration.af.default
+        configuration.headers = headers
 
         let manager = Session(configuration: configuration)
 
@@ -327,14 +589,14 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
     }()
 
     func managerWithCookie(_ cookie: HTTPCookie) -> Session {
-        let configuration = URLSessionConfiguration.alamofireDefault
+        let configuration = URLSessionConfiguration.af.default
         configuration.httpCookieStorage?.setCookie(cookie)
 
         return Session(configuration: configuration)
     }
 
     let managerDisallowingCookies: Session = {
-        let configuration = URLSessionConfiguration.alamofireDefault
+        let configuration = URLSessionConfiguration.af.default
         configuration.httpShouldSetCookies = false
 
         let manager = Session(configuration: configuration)
